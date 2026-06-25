@@ -1,0 +1,16 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: contratos_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: contratos_orcamentos
+    ports:
+      - "5432:5432"
+    volumes:
+      - contratos_pgdata:/var/lib/postgresql/data
+
+volumes:
+  contratos_pgdata:
