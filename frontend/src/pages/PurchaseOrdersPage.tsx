@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { FileText } from "lucide-react";
 import { api } from "../lib/api";
 import type { PurchaseOrder } from "../lib/types";
 import { Badge, EmptyState, PageHeader } from "../components/ui";
@@ -27,6 +28,16 @@ export default function PurchaseOrdersPage() {
     load();
   }
 
+  async function downloadPdf(po: PurchaseOrder) {
+    const res = await api.get(`/purchase-orders/${po.id}/pdf`, { responseType: "blob" });
+    const url = URL.createObjectURL(res.data);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${po.number}.pdf`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <div>
       <PageHeader title="Ordens de Compra" subtitle="Emissão e acompanhamento de O.C. vinculadas às obras" />
@@ -45,7 +56,7 @@ export default function PurchaseOrdersPage() {
                 <th className="px-4 py-3">Valor</th>
                 <th className="px-4 py-3">Emissão</th>
                 <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3"></th>
+                <th className="px-4 py-3 text-right">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -59,9 +70,14 @@ export default function PurchaseOrdersPage() {
                   <td className="px-4 py-3 text-slate-500">{formatDate(po.createdAt)}</td>
                   <td className="px-4 py-3"><Badge className={PO_COLORS[po.status]}>{PO_STATUS_LABELS[po.status]}</Badge></td>
                   <td className="px-4 py-3 text-right">
-                    {po.status !== "RECEBIDA" && po.status !== "CANCELADA" && (
-                      <button className="btn-secondary px-2 py-1 text-xs" onClick={() => advance(po)}>Avançar status</button>
-                    )}
+                    <div className="flex items-center justify-end gap-2">
+                      <button className="btn-secondary px-2 py-1 text-xs" onClick={() => downloadPdf(po)} title="Emitir PDF">
+                        <FileText size={14} /> PDF
+                      </button>
+                      {po.status !== "RECEBIDA" && po.status !== "CANCELADA" && (
+                        <button className="btn-secondary px-2 py-1 text-xs" onClick={() => advance(po)}>Avançar status</button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}

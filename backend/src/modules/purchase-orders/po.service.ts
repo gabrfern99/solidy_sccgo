@@ -2,6 +2,8 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "../../config/prisma.js";
 import { badRequest, notFound } from "../../utils/errors.js";
 import { logAction } from "../../utils/audit.js";
+import { createPdfDoc, setHeader, field, finish, brl, fmtDate } from "../../utils/pdf.js";
+import type { Writable } from "node:stream";
 import type { CreatePOInput, UpdatePOInput } from "./po.schema.js";
 
 function serialize(po: any) {
@@ -12,6 +14,19 @@ async function nextNumber(companyId: string) {
   const count = await prisma.purchaseOrder.count({ where: { companyId } });
   const year = new Date().getFullYear();
   return `OC-${year}-${String(count + 1).padStart(4, "0")}`;
+}
+
+export async function getById(companyId: string, id: string) {
+  const po = await prisma.purchaseOrder.findFirst({
+    where: { id, companyId },
+    include: {
+      payer: true,
+      obra: { select: { id: true, name: true, address: true } },
+      company: { select: { name: true, cnpj: true } },
+    },
+  });
+  if (!po) throw notFound("Ordem de compra");
+  return serialize(po);
 }
 
 export async function list(companyId: string, obraId?: string) {
@@ -105,4 +120,49 @@ export async function remove(companyId: string, userId: string, id: string) {
     entityId: id,
   });
   return { success: true };
+}
+
+const PO_STATUS_LABELS: Record<string, string> = {
+  ABERTA: "Aberta",
+  APROVADA: "Aprovada",
+  RECEBIDA: "Recebida",
+  CANCELADA: "Cancelada",
+};
+
+export async function generatePdf(companyId: string, id: string, res: Writable) {
+  const po = await prisma.purchaseOrder.findFirst({
+    where: { id, companyId },
+    include: {
+      payer: true,
+      obra: { select: { id: true, name: true, address: true } },
+      company: { select: { name: true, cnpj: true } },
+    },
+  });
+  if (!po) throw notFound("Ordem de compra");
+
+  const doc = createPdfDoc(res, `OC-${po.number}`);
+  setHeader(doc, "ORDEM DE COMPRA", po.number);
+
+  field(doc, "Empresa", po.company?.name ?? "-");
+  field(doc, "CNPJ", po.company?.cnpj ?? "-");
+  doc.moveDown(0.5);
+  field(doc, "Obra", po.obra?.name ?? "-");
+  if (po.obra?.address) field(doc, "Endereço da obra", po.obra.address);
+  doc.moveDown(0.5);
+  field(doc, "Fornecedor", po.supplier);
+  field(doc, "CNPJ Pagador", `${po.payer?.name ?? "-"} — ${po.payer?.cnpj ?? "-"}`);
+  if (po.description) field(doc, "Descrição", po.description);
+  field(doc, "Valor", brl(Number(po.amount)));
+  field(doc, "Status", PO_STATUS_LABELS[po.status] ?? po.status);
+  field(doc, "Data de emissão", fmtDate(po.createdAt));
+
+  doc.moveDown(2);
+  doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor("#e2e8f0").lineWidth(1).stroke();
+  doc.moveDown(1);
+  doc.fontSize(9).font("Helvetica").fillColor("#94a3b8").text(
+    "Documento gerado eletronicamente pelo sistema de Controle de Contratos & Gestão Orçamentária.",
+    { align: "center" }
+  );
+
+  finish(doc);
 }

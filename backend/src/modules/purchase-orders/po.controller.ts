@@ -12,6 +12,16 @@ router.get("/", asyncHandler(async (req, res) => {
   res.json(await service.list(req.auth!.companyId, req.query.obraId as string | undefined));
 }));
 
+router.get("/:id", asyncHandler(async (req, res) => {
+  res.json(await service.getById(req.auth!.companyId, req.params.id));
+}));
+
+router.get("/:id/pdf", asyncHandler(async (req, res) => {
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader("Content-Disposition", `attachment; filename="ordem-compra.pdf"`);
+  await service.generatePdf(req.auth!.companyId, req.params.id, res);
+}));
+
 router.post("/", validate(createPOSchema), asyncHandler(async (req, res) => {
   res.status(201).json(
     await service.create(req.auth!.companyId, req.auth!.userId, req.body)
