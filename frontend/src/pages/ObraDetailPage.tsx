@@ -65,7 +65,7 @@ export default function ObraDetailPage() {
   }
 
   return (
-    <div className="max-w-5xl">
+    <div>
       <button onClick={() => navigate("/obras")} className="mb-3 flex items-center gap-1 text-sm text-slate-500 hover:text-slate-700">
         <ArrowLeft size={16} /> Obras
       </button>

@@ -73,7 +73,7 @@ export default function ContractDetailPage() {
   if (!contract) return <p className="text-slate-500">Carregando...</p>;
 
   return (
-    <div className="max-w-4xl">
+    <div>
       <button onClick={() => navigate(-1)} className="mb-3 flex items-center gap-1 text-sm text-slate-500 hover:text-slate-700">
         <ArrowLeft size={16} /> Voltar
       </button>

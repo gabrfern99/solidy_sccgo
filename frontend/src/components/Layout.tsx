@@ -95,7 +95,7 @@ export default function Layout() {
           </button>
         </div>
       </aside>
-      <main className="flex-1 overflow-y-auto bg-slate-100 p-8">
+      <main className="flex-1 overflow-y-auto bg-slate-100 p-4 sm:p-6 lg:p-8">
         <Outlet />
       </main>
     </div>

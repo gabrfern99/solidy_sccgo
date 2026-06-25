@@ -64,7 +64,7 @@ export default function NewContractPage() {
   }
 
   return (
-    <div className="max-w-3xl">
+    <div>
       <PageHeader title="Novo Contrato" subtitle="Criação e preenchimento guiado" />
 
       <form onSubmit={submit} className="space-y-5">
