@@ -1,10 +1,12 @@
 import express from "express";
+import http from "node:http";
 import cors from "cors";
 import morgan from "morgan";
 import path from "node:path";
 import { env } from "./config/env.js";
 import routes from "./routes/index.js";
 import { errorHandler, notFoundHandler } from "./middlewares/errorHandler.js";
+import { initRealtime } from "./realtime/io.js";
 
 const app = express();
 
@@ -20,6 +22,10 @@ app.use("/api", routes);
 app.use(notFoundHandler);
 app.use(errorHandler);
 
-app.listen(env.port, () => {
+const server = http.createServer(app);
+initRealtime(server);
+
+server.listen(env.port, () => {
   console.log(`API rodando em http://localhost:${env.port}/api`);
+  console.log(`WebSocket pronto em ws://localhost:${env.port}`);
 });

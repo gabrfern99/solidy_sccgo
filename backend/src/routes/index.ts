@@ -8,6 +8,7 @@ import uploadRoutes from "../modules/uploads/upload.controller.js";
 import dashboardRoutes from "../modules/dashboard/dashboard.controller.js";
 import configRoutes from "../modules/config/config.controller.js";
 import userRoutes from "../modules/users/user.controller.js";
+import notificationRoutes from "../modules/notifications/notification.controller.js";
 import publicSignatureRoutes from "../modules/signatures/public-signature.controller.js";
 
 const router = Router();
@@ -23,6 +24,7 @@ router.use("/uploads", uploadRoutes);
 router.use("/dashboard", dashboardRoutes);
 router.use("/config", configRoutes);
 router.use("/users", userRoutes);
+router.use("/notifications", notificationRoutes);
 
 // Rotas públicas de assinatura (sem auth)
 router.use("/signatures", publicSignatureRoutes);

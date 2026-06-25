@@ -5,6 +5,7 @@ import { env } from "../../config/env.js";
 import { badRequest, notFound } from "../../utils/errors.js";
 import { logAction } from "../../utils/audit.js";
 import { computeVigencia, deriveStatus } from "../../utils/vigencia.js";
+import * as notificationService from "../notifications/notification.service.js";
 import type {
   CreateContractInput,
   SendSignatureInput,
@@ -271,6 +272,15 @@ export async function signByToken(token: string) {
     entityType: "contract",
     entityId: request.contractId,
     metadata: { signer: request.signerName, channel: request.channel },
+  });
+
+  // Notificação automática persistida + sinalização em tempo real via WebSocket
+  await notificationService.create(request.contract.companyId, {
+    type: "CONTRACT_SIGNED",
+    title: "Contrato assinado",
+    message: `${request.signerName} assinou o contrato "${request.contract.title}".`,
+    entityType: "contract",
+    entityId: request.contractId,
   });
 
   return {

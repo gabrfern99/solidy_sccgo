@@ -109,6 +109,7 @@ model Company {
   uploads          Upload[]
   auditLogs        AuditLog[]
   payerCompanies   PayerCompany[]
+  notifications    Notification[]
 
   @@map("companies")
 }
@@ -330,6 +331,24 @@ model Upload {
   vistoria  ObraVistoria? @relation(fields: [vistoriaId], references: [id], onDelete: Cascade)
 
   @@map("uploads")
+}
+
+model Notification {
+  id         String   @id @default(uuid())
+  companyId  String
+  userId     String? // destinatário específico; null = toda a empresa
+  type       String   @default("INFO") // ex: CONTRACT_SIGNED, INFO
+  title      String
+  message    String   @db.Text
+  read       Boolean  @default(false)
+  entityType String? // ex: 'contract'
+  entityId   String?
+  createdAt  DateTime @default(now())
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, read])
+  @@map("notifications")
 }
 
 model AuditLog {
