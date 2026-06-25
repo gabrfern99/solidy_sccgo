@@ -14,6 +14,8 @@ import {
   HardHat,
 } from "lucide-react";
 import { useAuth } from "../store/auth";
+import { useNotifications } from "../store/notifications";
+import TopBar from "./TopBar";
 
 const navGroups = [
   {
@@ -41,11 +43,12 @@ const navGroups = [
 
 export default function Layout() {
   const { user, company, logout } = useAuth();
+  const disconnect = useNotifications((s) => s.disconnect);
   const navigate = useNavigate();
 
   return (
-    <div className="flex min-h-screen">
-      <aside className="flex w-64 flex-col bg-slate-900 text-slate-300">
+    <div className="flex h-screen overflow-hidden">
+      <aside className="flex w-64 shrink-0 flex-col bg-slate-900 text-slate-300">
         <div className="flex items-center gap-2 px-5 py-5 text-white">
           <HardHat className="text-brand-400" />
           <div>
@@ -86,6 +89,7 @@ export default function Layout() {
           <p className="truncate text-xs text-slate-400">{company?.name}</p>
           <button
             onClick={() => {
+              disconnect();
               logout();
               navigate("/login");
             }}
@@ -95,9 +99,12 @@ export default function Layout() {
           </button>
         </div>
       </aside>
-      <main className="flex-1 overflow-y-auto bg-slate-100 p-4 sm:p-6 lg:p-8">
-        <Outlet />
-      </main>
+      <div className="flex flex-1 flex-col overflow-hidden">
+        <TopBar />
+        <main className="flex-1 overflow-y-auto bg-slate-100 p-4 sm:p-6 lg:p-8">
+          <Outlet />
+        </main>
+      </div>
     </div>
   );
 }
