@@ -40,17 +40,18 @@ export function setHeader(doc: ReturnType<typeof createPdfDoc>, title: string, s
 }
 
 export function field(doc: ReturnType<typeof createPdfDoc>, label: string, value: string) {
+  const y = doc.y;
   doc
     .fontSize(9)
     .font("Helvetica")
     .fillColor("#64748b")
-    .text(label, 50, doc.y);
+    .text(label, 50, y);
   doc
     .fontSize(11)
     .font("Helvetica-Bold")
     .fillColor("#1e293b")
-    .text(value, 50, doc.y + 12);
-  doc.moveDown(0.8);
+    .text(value, 50, y + 12);
+  doc.y = y + 28;
   doc.fillColor("#000000");
 }
 
