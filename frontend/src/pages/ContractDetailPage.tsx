@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Send, ArrowLeft, Copy, Building2 } from "lucide-react";
+import { Send, ArrowLeft, Copy, Building2, Link2, ExternalLink, Check } from "lucide-react";
 import { api, apiError } from "../lib/api";
 import type { Contract } from "../lib/types";
 import { Badge, Modal, PageHeader } from "../components/ui";
@@ -117,14 +117,17 @@ export default function ContractDetailPage() {
             {contract.signatureRequests && contract.signatureRequests.length > 0 ? (
               <div className="space-y-2">
                 {contract.signatureRequests.map((s) => (
-                  <div key={s.id} className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2 text-sm">
-                    <div>
-                      <p className="font-medium text-slate-700">{s.signerName}</p>
-                      <p className="text-xs text-slate-400">
-                        {s.channel} • enviado {formatDate(s.sentAt)} • {s.attempts} tentativa(s)
-                      </p>
+                  <div key={s.id} className="rounded-lg border border-slate-200 px-3 py-2 text-sm">
+                    <div className="flex items-center justify-between gap-2">
+                      <div>
+                        <p className="font-medium text-slate-700">{s.signerName}</p>
+                        <p className="text-xs text-slate-400">
+                          {s.channel} • enviado {formatDate(s.sentAt)} • {s.attempts} tentativa(s)
+                        </p>
+                      </div>
+                      <Badge className={SIG_COLORS[s.status]}>{SIG_STATUS[s.status]}</Badge>
                     </div>
-                    <Badge className={SIG_COLORS[s.status]}>{SIG_STATUS[s.status]}</Badge>
+                    {s.status === "AGUARDANDO" && s.token && <SignatureLink token={s.token} />}
                   </div>
                 ))}
               </div>
@@ -237,6 +240,30 @@ function Row({ label, value }: { label: string; value: string }) {
     <div className="flex items-center justify-between">
       <span className="text-slate-500">{label}</span>
       <span className="font-medium text-slate-700">{value}</span>
+    </div>
+  );
+}
+
+function SignatureLink({ token }: { token: string }) {
+  const [copied, setCopied] = useState(false);
+  const link = `${window.location.origin}/assinar/${token}`;
+
+  function copy() {
+    navigator.clipboard.writeText(link);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  return (
+    <div className="mt-2 flex items-center gap-2 border-t border-slate-100 pt-2">
+      <Link2 size={14} className="shrink-0 text-slate-400" />
+      <code className="flex-1 truncate rounded bg-slate-50 px-2 py-1 text-xs text-brand-700">{link}</code>
+      <button type="button" className="btn-secondary shrink-0 px-2 py-1" title="Copiar link" onClick={copy}>
+        {copied ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
+      </button>
+      <a className="btn-secondary shrink-0 px-2 py-1" href={`/assinar/${token}`} target="_blank" rel="noreferrer" title="Abrir link">
+        <ExternalLink size={14} />
+      </a>
     </div>
   );
 }
