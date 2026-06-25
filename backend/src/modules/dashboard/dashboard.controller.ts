@@ -18,4 +18,10 @@ router.get("/reports", asyncHandler(async (req, res) => {
   res.json(await service.reports(req.auth!.companyId));
 }));
 
+router.get("/reports/pdf", asyncHandler(async (req, res) => {
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader("Content-Disposition", `attachment; filename="relatorio-obras.pdf"`);
+  await service.reportsPdf(req.auth!.companyId, res);
+}));
+
 export default router;

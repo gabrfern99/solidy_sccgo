@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from "recharts";
-import { Download } from "lucide-react";
+import { Download, FileText } from "lucide-react";
 import { api } from "../lib/api";
 import { EmptyState, PageHeader } from "../components/ui";
 import { CUSTO_CATEGORIA_LABELS, formatCurrency } from "../lib/format";
@@ -36,6 +36,17 @@ export default function ReportsPage() {
     a.href = url;
     a.download = "relatorio-obras.csv";
     a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function exportPdf() {
+    const res = await api.get("/dashboard/reports/pdf", { responseType: "blob" });
+    const url = URL.createObjectURL(res.data);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "relatorio-obras.pdf";
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   return (
@@ -43,7 +54,12 @@ export default function ReportsPage() {
       <PageHeader
         title="Relatórios"
         subtitle="Exportação e consultas de custos e orçamento"
-        actions={<button className="btn-secondary" onClick={exportCsv}><Download size={16} /> Exportar CSV</button>}
+        actions={
+          <div className="flex gap-2">
+            <button className="btn-secondary" onClick={exportCsv}><Download size={16} /> Exportar CSV</button>
+            <button className="btn-primary" onClick={exportPdf}><FileText size={16} /> Exportar PDF</button>
+          </div>
+        }
       />
 
       <div className="card mb-6">
