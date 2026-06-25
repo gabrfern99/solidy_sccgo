@@ -1,0 +1,349 @@
+// Sistema de Controle de Contratos & Gestão Orçamentária
+// Modelagem multi-tenant normalizada (PostgreSQL + pgvector)
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [pgvector(map: "vector")]
+}
+
+// ===================== ENUMS =====================
+
+enum UserRole {
+  ADMIN
+  GESTOR
+  OPERADOR
+}
+
+enum ContractStatus {
+  RASCUNHO
+  AGUARDANDO_ASSINATURA
+  ASSINADO
+  ATIVO
+  VENCENDO
+  ENCERRADO
+  EXPIRADO
+}
+
+enum ContractCategory {
+  SERVICO
+  TRABALHO
+  OBRA
+  LOCACAO
+  OUTRO
+}
+
+enum SignatureChannel {
+  EMAIL
+  WHATSAPP
+  AMBOS
+}
+
+enum SignatureStatus {
+  AGUARDANDO
+  ASSINADO
+  EXPIRADO
+}
+
+enum ObraStatus {
+  PLANEJAMENTO
+  EM_EXECUCAO
+  CONCLUIDA
+  PARALISADA
+}
+
+enum ObraPhase {
+  PLANEJAMENTO
+  EXECUCAO
+  ENTREGA
+}
+
+enum StepStatus {
+  PENDENTE
+  EM_ANDAMENTO
+  CONCLUIDO
+}
+
+enum VistoriaTipo {
+  INICIAL
+  FINAL
+}
+
+enum CustoCategoria {
+  MATERIAL
+  MAO_DE_OBRA
+  EQUIPAMENTO
+  SERVICO_TERCEIRO
+  MANUTENCAO
+  OUTRO
+}
+
+enum PurchaseOrderStatus {
+  ABERTA
+  APROVADA
+  RECEBIDA
+  CANCELADA
+}
+
+// ===================== MODELS =====================
+
+model Company {
+  id        String   @id @default(uuid())
+  name      String
+  cnpj      String   @unique
+  email     String?
+  phone     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users            User[]
+  contracts        Contract[]
+  templates        ContractTemplate[]
+  obras            Obra[]
+  purchaseOrders   PurchaseOrder[]
+  uploads          Upload[]
+  auditLogs        AuditLog[]
+  payerCompanies   PayerCompany[]
+
+  @@map("companies")
+}
+
+// CNPJs pagadores cadastrados por empresa (usados na geração de O.C.)
+model PayerCompany {
+  id        String   @id @default(uuid())
+  companyId String
+  name      String
+  cnpj      String
+  createdAt DateTime @default(now())
+
+  company        Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  purchaseOrders PurchaseOrder[]
+
+  @@unique([companyId, cnpj])
+  @@map("payer_companies")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  companyId String
+  name      String
+  email     String
+  password  String
+  role      UserRole @default(OPERADOR)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company   Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  contracts Contract[]
+  auditLogs AuditLog[]
+
+  @@unique([companyId, email])
+  @@map("users")
+}
+
+model ContractTemplate {
+  id          String           @id @default(uuid())
+  companyId   String
+  name        String
+  category    ContractCategory @default(SERVICO)
+  description String?
+  body        String           @db.Text
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  company   Company                 @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  fields    ContractTemplateField[]
+  contracts Contract[]
+
+  @@map("contract_templates")
+}
+
+model ContractTemplateField {
+  id         String   @id @default(uuid())
+  templateId String
+  key        String
+  label      String
+  type       String   @default("text") // text, number, date, time, currency, address, party, signature, textarea
+  required   Boolean  @default(false)
+  order      Int      @default(0)
+
+  template ContractTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@map("contract_template_fields")
+}
+
+model Contract {
+  id              String           @id @default(uuid())
+  companyId       String
+  templateId      String?
+  createdById     String?
+  title           String
+  category        ContractCategory @default(SERVICO)
+  status          ContractStatus   @default(RASCUNHO)
+  counterparty    String // Parte relacionada (nome/razão social)
+  counterpartyDoc String? // CPF/CNPJ da parte
+  value           Decimal          @default(0) @db.Decimal(14, 2)
+  isMonthly       Boolean          @default(false)
+  startDate       DateTime?
+  endDate         DateTime?
+  fieldValues     Json? // valores dos campos dinâmicos preenchidos
+  body            String?          @db.Text // corpo final renderizado
+  signedAt        DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  company           Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  template          ContractTemplate?  @relation(fields: [templateId], references: [id])
+  createdBy         User?              @relation(fields: [createdById], references: [id])
+  signatureRequests SignatureRequest[]
+  obras             Obra[]
+
+  @@map("contracts")
+}
+
+model SignatureRequest {
+  id          String           @id @default(uuid())
+  contractId  String
+  channel     SignatureChannel
+  status      SignatureStatus  @default(AGUARDANDO)
+  signerName  String
+  signerEmail String?
+  signerPhone String?
+  token       String           @unique
+  sentAt      DateTime         @default(now())
+  signedAt    DateTime?
+  expiresAt   DateTime?
+  attempts    Int              @default(0)
+
+  contract Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+  @@map("signature_requests")
+}
+
+model Obra {
+  id            String     @id @default(uuid())
+  companyId     String
+  contractId    String?
+  name          String
+  description   String?
+  address       String?
+  status        ObraStatus @default(PLANEJAMENTO)
+  budgetPlanned Decimal    @default(0) @db.Decimal(14, 2)
+  startDate     DateTime?
+  endDate       DateTime?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  company        Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  contract       Contract?       @relation(fields: [contractId], references: [id])
+  steps          ObraStep[]
+  vistorias      ObraVistoria[]
+  custos         ObraCusto[]
+  purchaseOrders PurchaseOrder[]
+
+  @@map("obras")
+}
+
+model ObraStep {
+  id          String     @id @default(uuid())
+  obraId      String
+  title       String
+  phase       ObraPhase  @default(PLANEJAMENTO)
+  status      StepStatus @default(PENDENTE)
+  order       Int        @default(0)
+  dueDate     DateTime?
+  completedAt DateTime?
+
+  obra Obra @relation(fields: [obraId], references: [id], onDelete: Cascade)
+
+  @@map("obra_steps")
+}
+
+model ObraVistoria {
+  id          String       @id @default(uuid())
+  obraId      String
+  tipo        VistoriaTipo
+  description String       @db.Text
+  createdAt   DateTime     @default(now())
+
+  obra    Obra     @relation(fields: [obraId], references: [id], onDelete: Cascade)
+  uploads Upload[]
+
+  @@map("obra_vistorias")
+}
+
+model ObraCusto {
+  id          String         @id @default(uuid())
+  obraId      String
+  description String
+  categoria   CustoCategoria @default(OUTRO)
+  amount      Decimal        @db.Decimal(14, 2)
+  date        DateTime       @default(now())
+  isMaintenance Boolean      @default(false)
+
+  obra Obra @relation(fields: [obraId], references: [id], onDelete: Cascade)
+
+  @@map("obra_custos")
+}
+
+model PurchaseOrder {
+  id          String              @id @default(uuid())
+  companyId   String
+  obraId      String
+  payerId     String // CNPJ pagador
+  number      String
+  supplier    String
+  description String?
+  amount      Decimal             @db.Decimal(14, 2)
+  status      PurchaseOrderStatus @default(ABERTA)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  company Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  obra    Obra         @relation(fields: [obraId], references: [id], onDelete: Cascade)
+  payer   PayerCompany @relation(fields: [payerId], references: [id])
+
+  @@unique([companyId, number])
+  @@map("purchase_orders")
+}
+
+model Upload {
+  id         String   @id @default(uuid())
+  companyId  String
+  entityType String // ex: 'obra_vistoria', 'contract'
+  entityId   String?
+  vistoriaId String?
+  filename   String
+  originalName String
+  mimeType   String
+  size       Int
+  url        String
+  createdAt  DateTime @default(now())
+
+  company   Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  vistoria  ObraVistoria? @relation(fields: [vistoriaId], references: [id], onDelete: Cascade)
+
+  @@map("uploads")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  companyId  String
+  userId     String?
+  action     String
+  entityType String
+  entityId   String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user    User?   @relation(fields: [userId], references: [id])
+
+  @@map("audit_logs")
+}
