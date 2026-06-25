@@ -28,6 +28,25 @@ function serialize(contract: any) {
   };
 }
 
+// Substitui marcadores {{campo}} do corpo pelos valores preenchidos no contrato.
+// Mantém o marcador original quando não houver valor correspondente.
+function renderBody(
+  body: string | null | undefined,
+  fieldValues: any,
+  contract?: { counterparty?: string | null; value?: any }
+): string | null {
+  if (!body) return body ?? null;
+  const values: Record<string, unknown> = { ...(fieldValues ?? {}) };
+  if (contract) {
+    if (values.counterparty === undefined) values.counterparty = contract.counterparty ?? undefined;
+    if (values.valor === undefined && contract.value != null) values.valor = Number(contract.value);
+  }
+  return body.replace(/\{\{\s*([\w.-]+)\s*\}\}/g, (match, key: string) => {
+    const v = values[key];
+    return v !== undefined && v !== null && v !== "" ? String(v) : match;
+  });
+}
+
 export async function list(companyId: string, filters: ListFilters) {
   const where: Prisma.ContractWhereInput = { companyId };
 
@@ -60,7 +79,11 @@ export async function getById(companyId: string, id: string) {
     },
   });
   if (!contract) throw notFound("Contrato");
-  return serialize(contract);
+  const rendered = {
+    ...contract,
+    body: renderBody(contract.body, contract.fieldValues, contract),
+  };
+  return serialize(rendered);
 }
 
 export async function create(
@@ -260,14 +283,28 @@ export async function signByToken(token: string) {
 export async function getSignatureInfo(token: string) {
   const request = await prisma.signatureRequest.findUnique({
     where: { token },
-    include: { contract: { select: { title: true, body: true, counterparty: true } } },
+    include: {
+      contract: {
+        select: {
+          title: true,
+          body: true,
+          counterparty: true,
+          value: true,
+          fieldValues: true,
+        },
+      },
+    },
   });
   if (!request) throw notFound("Solicitação de assinatura");
+  const { value, fieldValues, ...contractRest } = request.contract;
   return {
     signerName: request.signerName,
     status: request.status,
     expiresAt: request.expiresAt,
-    contract: request.contract,
+    contract: {
+      ...contractRest,
+      body: renderBody(request.contract.body, fieldValues, request.contract),
+    },
   };
 }
 
